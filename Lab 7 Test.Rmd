@@ -13,8 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 x<- c(rep(1,10))
-y<- c(rep(1,10))
 
-plot(x,y)
+plot(x)
 ```
 
