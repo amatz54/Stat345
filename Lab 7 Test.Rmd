@@ -1,0 +1,20 @@
+---
+title: "Lab 7"
+author: "Alex Matz"
+date: "3/9/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Test Code ##
+
+```{r}
+x<- c(rep(1,10))
+y<- c(rep(1,10))
+
+plot(x,y)
+```
+
