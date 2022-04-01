@@ -1,0 +1,213 @@
+---
+title: "Milwaukee Bucks Analysis"
+font: 12pt
+date: "April 1"
+author: "Alex Matz"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+
+```{r Libraries, message=FALSE, warning=FALSE, include=FALSE}
+library(devtools)
+library(nbastatR) ## Library which includes many types of data from the NBA. This requires installation from gitHub
+library(remotes) ##Package which is necessary to get court data from package rNBA
+library(rNBA) ##Package with court dimension data directly from NBA site
+library(tidyverse)
+library(gridExtra)
+library(gganimate)
+library(gifski)
+```
+
+```{r Data Read in, warning=FALSE, message=FALSE, include=FALSE}
+Sys.setenv("Vroom_Connection_Size" = 131072*2) ## Sets the vroom allocation so data can be pulled in
+
+Bucks_2000<-teams_shots(teams = "Milwaukee Bucks",  ## This Loads in the Milwaukee Bucks Shot Data for 2000
+                   seasons= 2000,
+                   team_ids = NULL, all_active_teams = F, 
+                   season_types = "Regular Season",
+                   measures = "FGA",
+                   periods = 0,
+                   months = 0,
+                   date_from = NA,
+                   date_to = NA,
+                   nest_data = F,
+                   return_message = T
+                   )
+
+Bucks_2005<-teams_shots(teams = "Milwaukee Bucks", ## This Loads in the Milwaukee Bucks Shot Data for 2005
+                   seasons= 2005,
+                   team_ids = NULL, all_active_teams = F, 
+                   season_types = "Regular Season",
+                   measures = "FGA",
+                   periods = 0,
+                   months = 0,
+                   date_from = NA,
+                   date_to = NA,
+                   nest_data = F,
+                   return_message = T
+                   )
+
+Bucks_2010<-teams_shots(teams = "Milwaukee Bucks", ## This Loads in the Milwaukee Bucks Shot Data for 2010
+                   seasons= 2010,
+                   team_ids = NULL, all_active_teams = F, 
+                   season_types = "Regular Season",
+                   measures = "FGA",
+                   periods = 0,
+                   months = 0,
+                   date_from = NA,
+                   date_to = NA,
+                   nest_data = F,
+                   return_message = T
+                   )
+Bucks_2015<-teams_shots(teams = "Milwaukee Bucks", ## This Loads in the Milwaukee Bucks Shot Data for 2015     
+                   seasons= 2015,
+                   team_ids = NULL, all_active_teams = F, 
+                   season_types = "Regular Season",
+                   measures = "FGA",
+                   periods = 0,
+                   months = 0,
+                   date_from = NA,
+                   date_to = NA,
+                   nest_data = F,
+                   return_message = T
+                   )
+Bucks_2020<-teams_shots(teams = "Milwaukee Bucks",  ## This Loads in the Milwaukee Bucks Shot Data for 2020
+                   seasons= 2020,
+                   team_ids = NULL, all_active_teams = F, 
+                   season_types = "Regular Season",
+                   measures = "FGA",
+                   periods = 0,
+                   months = 0,
+                   date_from = NA,
+                   date_to = NA,
+                   nest_data = F,
+                   return_message = T
+                   )
+
+```
+```{r Data Merging and Explore, message=FALSE, warning=FALSE, include=FALSE}
+Bucks_All<- rbind(Bucks_2000,Bucks_2005, Bucks_2010, Bucks_2015, Bucks_2020) ## This combines all the data into one dataframes.
+
+##head(Bucks_All)
+
+## locationX & locationY are the shot location variables
+## isShotAttempted is logical variable which is always true
+## isShotMade is a logical boolean of true and false
+```
+
+```{r Court Makeup, message=FALSE, warning=FALSE, include=FALSE}
+court_coorinates<- courtOutline(full=T) ## From the rNBA package, this obtains the coordinates of the court
+
+##court_coorinates<-court_coorinates%>% ## Groups by the court parts (Type)
+ ##  group_by(type)
+
+##summary(court_coorinates$type) ##Gives the parts of the court listed
+
+court <- ggplot()+geom_line(data=court_coorinates, aes(x=x,y=y, group=type)) ## This makes the court given the rNBA coordinates
+
+```
+
+```{r Plotting, echo=FALSE, message=FALSE, warning=FALSE}
+
+### Plot is shot location on the created court plot ###
+
+animated_shots<- court+geom_point(data = Bucks_All, aes(x=locationX, y=locationY, color=typeEvent, alpha=.01))+ ##Adds the shot location points on the court
+   scale_color_manual(values = c("Made Shot"="olivedrab", "Missed Shot"= "grey"))+ ## Colors the shots for made or missed
+   guides(alpha="none")+ ##removes other guides
+   labs(color="Shots", x="", y="")+ ##Changes the labels of the legend and the axis
+   transition_time(yearSeason)+ ##creates transition animations
+  labs(title = 'Season: {frame_time}') ##Adds changing title to animation
+
+
+animate(animated_shots, fps=.25,nframes = 5) ## Runs Animation
+
+##Goal is to see the the shot density on the court for every season.
+```
+
+
+```{r Find the NBA Shot Distances and Percentages, echo=FALSE, message=FALSE, warning=FALSE}
+
+shot_distance<- Bucks_All%>% ##Makes the mean shot distant variable
+   group_by(yearSeason)%>%
+   summarise(mean(distanceShot))
+
+Bucks_All<-left_join(Bucks_All, shot_distance, by="yearSeason") ##Join the new mean shot distance variable to the main data set across all years
+
+
+shot_percentage<- Bucks_All%>%
+   select(yearSeason,isShotMade)%>% ##Selects the variables for the new variable
+   group_by(yearSeason)%>%
+   summarise(mean(isShotMade)*100)##Calculates the the total shot percentage using the mean of the boolean is shot made
+
+Bucks_All<-left_join(Bucks_All, shot_percentage, by="yearSeason") ##Join the new shot percentage/year to the main data set across all years
+
+
+Bucks_All<-rename(Bucks_All, "ave_shot_dist"="mean(distanceShot)") ## Rename
+Bucks_All<-rename(Bucks_All, "shot_percent"="mean(isShotMade) * 100") ## Rename
+
+
+
+Shot_Percentage_Plot<- ggplot()+geom_line(data=Bucks_All,aes(x=yearSeason, y=shot_percent)) +labs(x="Season", y="Average Shooting Percentage")+  ## Labels
+   theme_classic() ## Basic Theme to remove grid lines
+
+Shot_Distance_Plot<-ggplot()+geom_line(data=Bucks_All,aes(x=yearSeason, y=ave_shot_dist))+
+   labs(x="", y="Average Shot Distance (ft)", title = "Trends of Shooting over 20 Years")+ ## Labels
+   theme_classic() ## Basic Theme to remove grid lines
+
+grid.arrange(Shot_Distance_Plot, Shot_Percentage_Plot) ## Plots
+
+## The goal here is to see trends of shot distance and see if shooting percentage goes with it.
+
+
+```
+
+```{r Heights Compared to Distance, message=FALSE, warning=FALSE, include=FALSE}
+Players_Distance<-Bucks_All%>% ##Makes Shot Distance for each Player per season
+   group_by(idPlayer, yearSeason)%>%
+   summarise(mean(distanceShot))
+ 
+Players_Distance<-rename(Players_Distance, "player_shoot_distance"="mean(distanceShot)") ## Rename  
+
+Players_Distance<- Players_Distance %>% ##Select only the 2 variables for the merge
+   select(player_shoot_distance)
+   
+Bucks_All<-left_join(Players_Distance,Bucks_All, by="idPlayer") ## Joins Shot Distance into main data set
+
+
+Player_Profiles<-player_profiles(player_ids = Bucks_All$idPlayer) ## Attains player profile data from NBAstatR
+
+Bucks_All<-inner_join(Bucks_All,Player_Profiles, by="idPlayer") ##Joins the Player Profiles Df with main df
+
+height_shot_distance<- ggplot(data = Bucks_All, aes(x=heightInches, y=player_shoot_distance))+geom_point()+facet_wrap(~yearSeason)+labs(x="Player Heights (in)", y="Average Shot Distance", title="Players Average Shot Distance by their Heights")
+```
+
+```{r Height and Distance Plot, echo=FALSE, message=FALSE, warning=FALSE}
+height_shot_distance
+
+###The goal here was to see if the players heights effected the amount of shots taken at greater distances. These chunks are seperated solely supress warnings
+```
+
+Main Points
+
+* Over the years the density of the shots attempted appear to grow in distance from the hoop.
+* A indication of change of game play is evident with 2020 being an example with more shots being behind the 3 point line then all the other seasons.
+* Even as shot distance grows, the shooting percentage goes up in the later seasons. This may indicate that training improved shot percentage which allowed shots to be made at greater distance. 
+*  Most of these shots taken from greater distances are the shorter players. They is an apparent trend that in later seasons, taller players take shots at greater distances but still not as many as the shorter players.
+
+
+
+Further Reading
+
+This analysis was done on the seasons 1999-2000, 2004-2005, 2009-2010, 2014-2015, 2019-2020 for solely on the team Milwaukee Bucks. The data was source from two R packages, rNBA and NBAstatR. These packages were designed to retrieve data from valid sources including NBA.com. Using coordinate shot data compared against the court coordinates, using plotting it was found that there is a trend in the shot distance increasing over the 5 seasons. These trends became clearer when animating the seasons and the shot locations. Deeper analysis showed that although the shot distance increase, the shooting percentage did not decrease overall. Instead they appear to follow the same trend indicating that training may have increased shooting percentage therefore allow players to shoot farther from the basket. 
+
+Looking at what type of players most often shot at these greater distances, average shooting distances were plotted against there heights for the seasons. The Bucks have had a variety of players during these seasons but many have been players over the 20 year period so the heights were often the same across seasons. It was found that for all seasons, the shorter players shot consistently at greater distances. This may because the positions of the players. In 2020, taller players shot farther which may suggest another trend change. 
+
+Overall, over the 5 seasons, shot distance increased along with the shooting percentage. Most of these shots were taken by shorter players but there may be new trend of taller players also shooting farther.
+  
+  
+  
+
+
